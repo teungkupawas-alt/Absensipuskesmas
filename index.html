@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Digital Puskesmas + GPS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
+        body { 
+            font-family: 'Plus+Jakarta+Sans', sans-serif; 
+            background-color: #f0fdf4;
+            background-image: url("https://www.transparenttextures.com/patterns/arabesque.png");
+        }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full glass-morphism rounded-3xl shadow-2xl overflow-hidden border-t-8 border-emerald-600">
+        
+        <div class="pt-8 pb-6 px-8 text-center bg-gradient-to-b from-emerald-50 to-white">
+            <img src="https://cdn-icons-png.flaticon.com/512/4320/4320337.png" alt="Logo" class="w-16 h-16 mx-auto mb-3">
+            <h1 class="text-xl font-bold text-emerald-900 uppercase">Absensi Puskesmas</h1>
+            <p class="text-xs text-emerald-600 font-medium italic">Sistem Kehadiran Berbasis Lokasi (GPS)</p>
+        </div>
+
+        <div class="px-8 pb-10">
+            <form id="attendanceForm" class="space-y-4">
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-emerald-700 uppercase mb-1 ml-1">Nama Lengkap</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-500"><i class="fas fa-user-md"></i></span>
+                        <input type="text" name="nama" required class="block w-full pl-10 pr-4 py-2.5 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-emerald-50/30" placeholder="Nama & Gelar">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-emerald-700 uppercase mb-1 ml-1">NIP / ID Pegawai</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-500"><i class="fas fa-id-card"></i></span>
+                        <input type="text" name="nip" required class="block w-full pl-10 pr-4 py-2.5 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-emerald-50/30" placeholder="Nomor Induk Pegawai">
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <label class="flex-1">
+                        <input type="radio" name="status" value="Masuk" class="hidden peer" checked>
+                        <div class="text-center py-2 border rounded-xl cursor-pointer peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600 text-emerald-700 border-emerald-100 font-semibold text-sm transition-all">Masuk</div>
+                    </label>
+                    <label class="flex-1">
+                        <input type="radio" name="status" value="Pulang" class="hidden peer">
+                        <div class="text-center py-2 border rounded-xl cursor-pointer peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600 text-emerald-700 border-emerald-100 font-semibold text-sm transition-all">Pulang</div>
+                    </label>
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2">
+                    <i class="fas fa-location-arrow"></i>
+                    <span>Kirim Absen & Lokasi</span>
+                </button>
+            </form>
+
+            <div id="statusMsg" class="hidden mt-4 p-3 rounded-xl text-center text-xs font-bold uppercase tracking-widest"></div>
+        </div>
+    </div>
+
+    <script>
+        const scriptUrl = 'URL_GOOGLE_APPS_SCRIPT_ANDA'; // GANTI DENGAN URL ANDA
+        const form = document.getElementById('attendanceForm');
+        const btn = document.getElementById('submitBtn');
+        const msg = document.getElementById('statusMsg');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Mencari GPS...</span>';
+
+            // Meminta Izin Lokasi
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+                        
+                        sendData(lat, lon, mapsLink);
+                    },
+                    (error) => {
+                        alert("Gagal mengambil lokasi. Pastikan GPS aktif dan izin diberikan.");
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Kirim Absen & Lokasi</span>';
+                    },
+                    { enableHighAccuracy: true }
+                );
+            } else {
+                alert("Browser Anda tidak mendukung fitur GPS.");
+            }
+        });
+
+        async function sendData(lat, lon, mapsLink) {
+            btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> <span>Mengirim Data...</span>';
+            
+            const formData = {
+                timestamp: new Date().toLocaleString('id-ID'),
+                nama: form.nama.value,
+                nip: form.nip.value,
+                status: form.status.value,
+                latitude: lat,
+                longitude: lon,
+                lokasi_url: mapsLink
+            };
+
+            try {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify(formData)
+                });
+                
+                msg.innerText = "BARAKALLAH! ABSEN BERHASIL.";
+                msg.className = "mt-4 p-3 rounded-xl text-center text-xs font-bold bg-emerald-100 text-emerald-800 block";
+                form.reset();
+            } catch (err) {
+                msg.innerText = "GAGAL! COBA LAGI.";
+                msg.className = "mt-4 p-3 rounded-xl text-center text-xs font-bold bg-red-100 text-red-800 block";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Kirim Absen & Lokasi</span>';
+            }
+        }
+    </script>
+</body>
+</html>
